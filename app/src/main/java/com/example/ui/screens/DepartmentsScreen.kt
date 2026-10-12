@@ -30,13 +30,13 @@ fun DepartmentsScreen(
     ) {
         DepartmentCard(
             imageUrl = "https://images.unsplash.com/photo-1545173168-9f1947eebb7f?w=800&q=80",
-            buttonText = "DRY CLEANING / LAUNDRY ->",
+            buttonText = "DRY CLEANING / LAUNDRY",
             onClick = onSelectLaundry
         )
         Spacer(modifier = Modifier.height(24.dp))
         DepartmentCard(
             imageUrl = "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=800&q=80",
-            buttonText = "WASHING POWDER AND PRODUCTS ->",
+            buttonText = "WASHING POWDER AND PRODUCTS",
             onClick = onSelectRetail
         )
     }

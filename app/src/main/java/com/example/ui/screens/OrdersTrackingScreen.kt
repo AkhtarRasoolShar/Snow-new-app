@@ -29,6 +29,8 @@ fun OrdersTrackingScreen(
     val currentUser by viewModel.currentUser.collectAsState()
     val orders by viewModel.orders.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val unreadChatCounts by viewModel.unreadChatCounts.collectAsState()
+    val activeChatOrderId by viewModel.activeChatOrderId.collectAsState()
 
     var activeChatOrder by remember { mutableStateOf<Order?>(null) }
     var activeRatingOrder by remember { mutableStateOf<Order?>(null) }
@@ -36,6 +38,16 @@ fun OrdersTrackingScreen(
     LaunchedEffect(Unit) {
         if (currentUser != null) {
             viewModel.loadOrders()
+        }
+    }
+
+    LaunchedEffect(activeChatOrderId, orders) {
+        val targetId = activeChatOrderId
+        if (targetId != null && orders.isNotEmpty()) {
+            val targetOrder = orders.find { it.displayId == targetId }
+            if (targetOrder != null) {
+                activeChatOrder = targetOrder
+            }
         }
     }
 
@@ -111,9 +123,14 @@ fun OrdersTrackingScreen(
                 contentPadding = PaddingValues(bottom = 100.dp)
             ) {
                 items(orders) { order ->
+                    val unread = unreadChatCounts[order.displayId] ?: 0
                     OrderTrackingCard(
                         order = order,
-                        onOpenChat = { activeChatOrder = order },
+                        unreadCount = unread,
+                        onOpenChat = {
+                            viewModel.clearUnreadChatForOrder(order.displayId)
+                            activeChatOrder = order
+                        },
                         onOpenRating = { activeRatingOrder = order }
                     )
                 }
@@ -141,6 +158,7 @@ fun OrdersTrackingScreen(
 @Composable
 fun OrderTrackingCard(
     order: Order,
+    unreadCount: Int = 0,
     onOpenChat: () -> Unit,
     onOpenRating: () -> Unit
 ) {
@@ -236,14 +254,24 @@ fun OrderTrackingCard(
                     }
 
                     Row {
-                        OutlinedButton(
-                            onClick = onOpenChat,
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        BadgedBox(
+                            badge = {
+                                if (unreadCount > 0) {
+                                    Badge(containerColor = Color(0xFFDC2626), contentColor = Color.White) {
+                                        Text("$unreadCount")
+                                    }
+                                }
+                            }
                         ) {
-                            Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF0061E0))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Rider Chat", fontSize = 12.sp, color = Color(0xFF0061E0))
+                            OutlinedButton(
+                                onClick = onOpenChat,
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF0061E0))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Rider Chat", fontSize = 12.sp, color = Color(0xFF0061E0))
+                            }
                         }
 
                         if (status.uppercase().contains("DELIVERED")) {

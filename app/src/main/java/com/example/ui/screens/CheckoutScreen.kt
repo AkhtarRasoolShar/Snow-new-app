@@ -146,24 +146,33 @@ fun CheckoutScreen(
                             color = Color(0xFF15803D)
                         )
                     }
-                } else {
+                    var isVerifyingCard by remember { mutableStateOf(false) }
                     OutlinedTextField(
                         value = inputSwCardNumber,
                         onValueChange = { inputSwCardNumber = it },
-                        label = { Text("Enter SW Card Number (e.g., SW-1001)") },
+                        label = { Text("Enter SW Card No (e.g. B0001) or Phone") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
+                        enabled = !isVerifyingCard,
                         trailingIcon = {
-                            TextButton(
-                                onClick = {
-                                    if (viewModel.verifySwCard(inputSwCardNumber)) {
-                                        Toast.makeText(context, "SW Member Verified!", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        Toast.makeText(context, "Invalid Card Number", Toast.LENGTH_SHORT).show()
+                            if (isVerifyingCard) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF0061E0))
+                            } else {
+                                TextButton(
+                                    onClick = {
+                                        if (inputSwCardNumber.isBlank()) {
+                                            Toast.makeText(context, "Please enter SW Card Number or Phone", Toast.LENGTH_SHORT).show()
+                                            return@TextButton
+                                        }
+                                        isVerifyingCard = true
+                                        viewModel.verifySwCardLive(inputSwCardNumber) { success, _, msg ->
+                                            isVerifyingCard = false
+                                            Toast.makeText(context, msg ?: if (success) "SW Member Verified!" else "Invalid Card Number", Toast.LENGTH_LONG).show()
+                                        }
                                     }
+                                ) {
+                                    Text("Apply", fontWeight = FontWeight.Bold, color = Color(0xFF0061E0))
                                 }
-                            ) {
-                                Text("Apply", fontWeight = FontWeight.Bold, color = Color(0xFF0061E0))
                             }
                         }
                     )
@@ -419,7 +428,7 @@ fun CheckoutScreen(
                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
             } else {
                 Text(
-                    text = "CONFIRM & SCHEDULE PICKUP ->",
+                    text = "CONFIRM & SCHEDULE PICKUP",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White

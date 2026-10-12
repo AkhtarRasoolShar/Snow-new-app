@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.network.SnowhiteRepository
+import com.example.ui.components.SnowhiteBrandIcon
 import com.example.viewmodel.SnowhiteViewModel
 import kotlinx.coroutines.launch
 
@@ -30,6 +31,7 @@ fun AuthScreen(
     val context = LocalContext.current
     val repository = remember { SnowhiteRepository() }
     val scope = rememberCoroutineScope()
+    val settings by viewModel.settings.collectAsState()
 
     var isRegisterMode by remember { mutableStateOf(initialRegisterMode) }
     var isForgotMode by remember { mutableStateOf(false) }
@@ -64,6 +66,10 @@ fun AuthScreen(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                SnowhiteBrandIcon(logoUrl = settings.logoUrl, size = 68.dp)
+
+                Spacer(modifier = Modifier.height(14.dp))
+
                 Text(
                     text = "SNOWHITE",
                     fontSize = 28.sp,
@@ -71,6 +77,7 @@ fun AuthScreen(
                     color = Color.White,
                     letterSpacing = 2.sp
                 )
+
                 Text(
                     text = "Laundry & Retail Customer Account",
                     fontSize = 13.sp,
@@ -95,93 +102,146 @@ fun AuthScreen(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A)
                     )
+
                     Spacer(modifier = Modifier.height(16.dp))
 
                     if (forgotStep == 1) {
                         OutlinedTextField(
                             value = email,
                             onValueChange = { email = it },
-                            label = { Text("Registered Email") },
+                            label = { Text("Registered Email or WhatsApp Phone") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
+
                         Spacer(modifier = Modifier.height(20.dp))
-                        Button(
-                            onClick = {
-                                if (email.isBlank()) {
-                                    Toast.makeText(context, "Enter your email", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-                                isLoading = true
-                                scope.launch {
-                                    repository.forgotPasswordRequest(email)
-                                        .onSuccess { msg ->
-                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                            forgotStep = 2
-                                        }
-                                        .onFailure { err ->
-                                            Toast.makeText(context, err.message, Toast.LENGTH_SHORT).show()
-                                        }
-                                    isLoading = false
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0061E0)),
-                            shape = RoundedCornerShape(12.dp)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            if (isLoading) CircularProgressIndicator(color = Color.White)
-                            else Text("SEND OTP ->", fontWeight = FontWeight.Bold)
+                            Button(
+                                onClick = {
+                                    if (email.isBlank()) {
+                                        Toast.makeText(context, "Enter registered Email or Phone", Toast.LENGTH_SHORT).show()
+                                        return@Button
+                                    }
+                                    isLoading = true
+                                    scope.launch {
+                                        repository.forgotPasswordRequest(email, "email").fold(
+                                            onSuccess = { msg ->
+                                                isLoading = false
+                                                forgotStep = 2
+                                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                            },
+                                            onFailure = { err ->
+                                                isLoading = false
+                                                Toast.makeText(context, err.message ?: "Failed to send OTP", Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0061E0)),
+                                shape = RoundedCornerShape(12.dp),
+                                enabled = !isLoading
+                            ) {
+                                Text("Send via Email", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+
+                            Button(
+                                onClick = {
+                                    if (email.isBlank()) {
+                                        Toast.makeText(context, "Enter registered Email or Phone", Toast.LENGTH_SHORT).show()
+                                        return@Button
+                                    }
+                                    isLoading = true
+                                    scope.launch {
+                                        repository.forgotPasswordRequest(email, "whatsapp").fold(
+                                            onSuccess = { msg ->
+                                                isLoading = false
+                                                forgotStep = 2
+                                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                            },
+                                            onFailure = { err ->
+                                                isLoading = false
+                                                Toast.makeText(context, err.message ?: "Failed to send OTP", Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                                shape = RoundedCornerShape(12.dp),
+                                enabled = !isLoading
+                            ) {
+                                Text("Send via WhatsApp", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
+                            }
                         }
                     } else {
                         OutlinedTextField(
                             value = otp,
                             onValueChange = { otp = it },
-                            label = { Text("6-Digit OTP Code") },
+                            label = { Text("Enter 6-Digit OTP") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
                         OutlinedTextField(
                             value = newPassword,
                             onValueChange = { newPassword = it },
-                            label = { Text("New Password") },
+                            label = { Text("Enter New Password") },
                             visualTransformation = PasswordVisualTransformation(),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
+
                         Spacer(modifier = Modifier.height(20.dp))
+
                         Button(
                             onClick = {
                                 if (otp.isBlank() || newPassword.isBlank()) {
-                                    Toast.makeText(context, "Enter OTP and New Password", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Fill in all fields", Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
                                 isLoading = true
                                 scope.launch {
-                                    repository.resetPasswordWithOtp(email, otp, newPassword)
-                                        .onSuccess { msg ->
-                                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                    repository.resetPasswordWithOtp(email, otp, newPassword).fold(
+                                        onSuccess = { msg ->
+                                            isLoading = false
+                                            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                                             isForgotMode = false
                                             forgotStep = 1
+                                        },
+                                        onFailure = { err ->
+                                            isLoading = false
+                                            Toast.makeText(context, err.message ?: "Reset failed", Toast.LENGTH_SHORT).show()
                                         }
-                                        .onFailure { err ->
-                                            Toast.makeText(context, err.message, Toast.LENGTH_SHORT).show()
-                                        }
-                                    isLoading = false
+                                    )
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0061E0)),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !isLoading
                         ) {
                             if (isLoading) CircularProgressIndicator(color = Color.White)
-                            else Text("RESET PASSWORD ->", fontWeight = FontWeight.Bold)
+                            else Text("RESET PASSWORD", fontWeight = FontWeight.Bold)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
+
                     Text(
-                        text = "<- Back to Login",
+                        text = "Back to Login",
                         color = Color(0xFF0061E0),
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier
@@ -191,7 +251,6 @@ fun AuthScreen(
                             }
                             .padding(8.dp)
                     )
-
                 } else if (isRegisterMode) {
                     Text(
                         text = "Create New Account",
@@ -199,6 +258,7 @@ fun AuthScreen(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A)
                     )
+
                     Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedTextField(
@@ -208,7 +268,9 @@ fun AuthScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+
                     Spacer(modifier = Modifier.height(10.dp))
+
                     OutlinedTextField(
                         value = phone,
                         onValueChange = { phone = it },
@@ -216,7 +278,9 @@ fun AuthScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+
                     Spacer(modifier = Modifier.height(10.dp))
+
                     OutlinedTextField(
                         value = email,
                         onValueChange = { email = it },
@@ -224,7 +288,9 @@ fun AuthScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+
                     Spacer(modifier = Modifier.height(10.dp))
+
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
@@ -233,6 +299,7 @@ fun AuthScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+
                     Spacer(modifier = Modifier.height(20.dp))
 
                     Button(
@@ -254,10 +321,11 @@ fun AuthScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0061E0)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("REGISTER & LOG IN ->", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("REGISTER & LOG IN", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center
@@ -270,7 +338,6 @@ fun AuthScreen(
                             modifier = Modifier.clickable { isRegisterMode = false }
                         )
                     }
-
                 } else {
                     Text(
                         text = "Sign In to Your Account",
@@ -278,6 +345,7 @@ fun AuthScreen(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A)
                     )
+
                     Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedTextField(
@@ -287,6 +355,7 @@ fun AuthScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
+
                     Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedTextField(
@@ -299,6 +368,7 @@ fun AuthScreen(
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
+
                     Box(modifier = Modifier.fillMaxWidth()) {
                         Text(
                             text = "Forgot Password?",
@@ -333,10 +403,11 @@ fun AuthScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0061E0)),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("LOG IN ->", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("LOG IN", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center

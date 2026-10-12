@@ -52,12 +52,26 @@ data class Product(
 }
 
 @JsonClass(generateAdapter = true)
+data class SwMember(
+    @Json(name = "card_number") val cardNumber: String? = null,
+    @Json(name = "member_name") val memberName: String? = null,
+    @Json(name = "phone") val phone: String? = null,
+    @Json(name = "branch_code") val branchCode: String? = null,
+    @Json(name = "voucher_1") val voucher1: String? = null,
+    @Json(name = "voucher_2") val voucher2: String? = null,
+    @Json(name = "discount_premium_percent") val discountPremiumPercent: Any? = null,
+    @Json(name = "discount_regular_percent") val discountRegularPercent: Any? = null,
+    @Json(name = "expiry_date") val expiryDate: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class User(
     @Json(name = "id") val id: Long,
     @Json(name = "name") val name: String? = null,
     @Json(name = "phone") val phone: String? = null,
     @Json(name = "email") val email: String? = null,
     @Json(name = "service_zone") val serviceZone: String? = null,
+    @Json(name = "address") val address: String? = null,
     @Json(name = "sw_card_number") val swCardNumber: String? = null,
     @Json(name = "is_sw_member") val isSwMember: Boolean? = false
 )
@@ -126,4 +140,14 @@ data class PromoCode(
 data class CartItem(
     val product: Product,
     val quantity: Int
+)
+
+data class AppNotification(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val title: String,
+    val body: String,
+    val timestamp: String = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date()),
+    val orderId: Long? = null,
+    val isRead: Boolean = false,
+    val type: String = "order" // "order", "chat", or "test"
 )

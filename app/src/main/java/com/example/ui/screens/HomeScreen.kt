@@ -11,12 +11,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.network.models.Product
+import com.example.ui.components.SnowhiteBrandIcon
 import com.example.ui.components.SnowhiteNetworkImage
 import com.example.viewmodel.SnowhiteViewModel
 
@@ -36,10 +37,16 @@ fun HomeScreen(
     onNavigateToCart: () -> Unit
 ) {
     val products by viewModel.products.collectAsState()
+    val settings by viewModel.settings.collectAsState()
+    val isSwMember by viewModel.isSwMember.collectAsState()
+    val swMember by viewModel.swMember.collectAsState()
+    val swCardNumber by viewModel.swCardNumber.collectAsState()
+
     val garmentProducts = products.filter { product ->
         val cat = product.categoryName?.lowercase() ?: ""
         !cat.contains("powder") && !cat.contains("retail")
     }
+
     val retailProducts = products.filter { product ->
         val cat = product.categoryName?.lowercase() ?: ""
         cat.contains("powder") || cat.contains("retail")
@@ -53,8 +60,52 @@ fun HomeScreen(
             .padding(bottom = 80.dp)
     ) {
         HeroSectionCard(
+            logoUrl = settings.logoUrl,
             onGetStartedClick = onNavigateToMembership
         )
+
+        if (isSwMember) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clickable { onNavigateToMembership() },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEAB308))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = null,
+                            tint = Color(0xFFD97706),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "SW GOLD MEMBER ACTIVE (${swMember?.cardNumber ?: swCardNumber ?: "Member"})",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFFB45309)
+                            )
+                            Text(
+                                text = "30% OFF Premium Plus & 20% OFF Regular / Retail",
+                                fontSize = 11.sp,
+                                color = Color(0xFF78350F)
+                            )
+                        }
+                    }
+                }
+            }
+        }
 
         if (garmentProducts.isNotEmpty()) {
             Column(modifier = Modifier.padding(vertical = 12.dp)) {
@@ -65,6 +116,7 @@ fun HomeScreen(
                     color = Color(0xFF0F172A),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
+
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -89,6 +141,7 @@ fun HomeScreen(
                     color = Color(0xFF0F172A),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
+
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -108,13 +161,14 @@ fun HomeScreen(
 
 @Composable
 fun HeroSectionCard(
+    logoUrl: String?,
     onGetStartedClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp)
-            .height(200.dp),
+            .height(250.dp),
         shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
@@ -134,21 +188,31 @@ fun HeroSectionCard(
                     .padding(20.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Button(
-                    onClick = onGetStartedClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0061E0)),
-                    shape = CircleShape,
-                    contentPadding = PaddingValues(horizontal = 36.dp, vertical = 18.dp),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Text(
-                        text = "Get Started ->",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
+                    SnowhiteBrandIcon(logoUrl = logoUrl, size = 84.dp)
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = onGetStartedClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0061E0)),
+                        shape = CircleShape,
+                        contentPadding = PaddingValues(horizontal = 36.dp, vertical = 18.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp)
+                    ) {
+                        Text(
+                            text = "Get Started",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                    }
                 }
             }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -191,6 +255,7 @@ fun HomeProductCard(
                         .height(130.dp)
                         .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 )
+
                 Column(modifier = Modifier.padding(12.dp)) {
                     Text(
                         text = product.name,
@@ -200,7 +265,9 @@ fun HomeProductCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
                     Spacer(modifier = Modifier.height(4.dp))
+
                     if (isSwMember && effectivePrice < product.numericPrice) {
                         Text(
                             text = "Rs. ${product.price} PKR",
@@ -222,7 +289,9 @@ fun HomeProductCard(
                             color = Color(0xFF0061E0)
                         )
                     }
+
                     Spacer(modifier = Modifier.height(10.dp))
+
                     Button(
                         onClick = { viewModel.addToCart(product, 1) },
                         modifier = Modifier.fillMaxWidth(),
@@ -239,6 +308,7 @@ fun HomeProductCard(
                     }
                 }
             }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

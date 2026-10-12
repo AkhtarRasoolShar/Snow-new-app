@@ -58,13 +58,7 @@ private fun resolveImageUrl(url: String?, productName: String): String {
     if (url.isNullOrBlank() || url == "null") {
         return getUnsplashFallbackUrl(productName)
     }
-    val trimmed = url.trim()
-    return when {
-        trimmed.startsWith("uploads/") -> "https://snow.akfasft.com/$trimmed"
-        trimmed.startsWith("/uploads/") -> "https://snow.akfasft.com$trimmed"
-        trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
-        else -> "https://snow.akfasft.com/$trimmed"
-    }
+    return com.example.config.AppConfig.resolveImageUrl(url)
 }
 
 private fun downloadBitmap(urlString: String): ImageBitmap? {

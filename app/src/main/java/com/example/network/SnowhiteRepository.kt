@@ -1,5 +1,6 @@
 package com.example.network
 
+import com.example.config.AppConfig
 import com.example.network.models.*
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -18,7 +19,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class SnowhiteRepository {
-    private val baseUrl = "https://snow.akfasft.com/"
+    private val apiEndpoint: String get() = AppConfig.apiEndpoint
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
     private val okHttpClient: OkHttpClient by lazy {
@@ -87,7 +88,7 @@ class SnowhiteRepository {
 
     suspend fun getSettings(): Result<GlobalSettings> = withContext(Dispatchers.IO) {
         try {
-            val json = executeGet("${baseUrl}api/routes.php?action=get_settings")
+            val json = executeGet("${apiEndpoint}?action=get_settings")
             val apiResponse = parseApiResponse<GlobalSettings>(json)
             if (apiResponse?.status == "success" && apiResponse.data != null) {
                 Result.success(apiResponse.data)
@@ -101,7 +102,7 @@ class SnowhiteRepository {
 
     suspend fun getCategories(): Result<List<Category>> = withContext(Dispatchers.IO) {
         try {
-            val json = executeGet("${baseUrl}api/routes.php?action=get_categories")
+            val json = executeGet("${apiEndpoint}?action=get_categories")
             val apiResponse = parseApiResponseList(json, Category::class.java)
             if (apiResponse?.status == "success") {
                 val list = apiResponse.data ?: emptyList()
@@ -118,9 +119,9 @@ class SnowhiteRepository {
     suspend fun getProducts(categoryId: Long? = null): Result<List<Product>> = withContext(Dispatchers.IO) {
         try {
             val url = if (categoryId != null && categoryId > 0) {
-                "${baseUrl}api/routes.php?action=get_products&category_id=$categoryId"
+                "${apiEndpoint}?action=get_products&category_id=$categoryId"
             } else {
-                "${baseUrl}api/routes.php?action=get_products"
+                "${apiEndpoint}?action=get_products"
             }
             val json = executeGet(url)
             val apiResponse = parseApiResponseList(json, Product::class.java)
@@ -143,7 +144,7 @@ class SnowhiteRepository {
                 put("phone", emailOrPhone)
                 put("password", password)
             }.toString()
-            val responseJson = executePost("${baseUrl}api/routes.php?action=login", jsonBody)
+            val responseJson = executePost("${apiEndpoint}?action=login", jsonBody)
             val apiResponse = parseApiResponse<User>(responseJson)
             if (apiResponse?.status == "success" && apiResponse.data != null) {
                 Result.success(apiResponse.data)
@@ -163,7 +164,7 @@ class SnowhiteRepository {
                 put("email", email)
                 put("password", password)
             }.toString()
-            val responseJson = executePost("${baseUrl}api/routes.php?action=register", jsonBody)
+            val responseJson = executePost("${apiEndpoint}?action=register", jsonBody)
             val apiResponse = parseApiResponse<User>(responseJson)
             if (apiResponse?.status == "success" && apiResponse.data != null) {
                 Result.success(apiResponse.data)
@@ -175,33 +176,40 @@ class SnowhiteRepository {
         }
     }
 
-    suspend fun forgotPasswordRequest(email: String): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun forgotPasswordRequest(identifier: String, channel: String = "email"): Result<String> = withContext(Dispatchers.IO) {
         try {
+            val cleanId = identifier.trim()
             val jsonBody = JSONObject().apply {
-                put("email", email)
+                put("identifier", cleanId)
+                put("email", cleanId)
+                put("phone", cleanId)
+                put("channel", channel)
             }.toString()
-            val responseJson = executePost("${baseUrl}api/routes.php?action=forgot_password", jsonBody)
+            val responseJson = executePost("${apiEndpoint}?action=forgot_password_request", jsonBody)
             val rootObj = JSONObject(responseJson)
             val status = rootObj.optString("status")
             val message = rootObj.optString("message")
             if (status == "success") {
-                Result.success(if (message.isNotEmpty()) message else "OTP sent to your email")
+                Result.success(if (message.isNotEmpty()) message else "OTP sent via $channel")
             } else {
-                Result.failure(Exception(if (message.isNotEmpty()) message else "Failed to request OTP"))
+                Result.failure(Exception(if (message.isNotEmpty()) message else "Failed to send OTP"))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun resetPasswordWithOtp(email: String, otp: String, newPassword: String): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun resetPasswordWithOtp(identifier: String, otp: String, newPassword: String): Result<String> = withContext(Dispatchers.IO) {
         try {
+            val cleanId = identifier.trim()
             val jsonBody = JSONObject().apply {
-                put("email", email)
-                put("otp", otp)
+                put("identifier", cleanId)
+                put("email", cleanId)
+                put("phone", cleanId)
+                put("otp", otp.trim())
                 put("new_password", newPassword)
             }.toString()
-            val responseJson = executePost("${baseUrl}api/routes.php?action=reset_password", jsonBody)
+            val responseJson = executePost("${apiEndpoint}?action=forgot_password_verify", jsonBody)
             val rootObj = JSONObject(responseJson)
             val status = rootObj.optString("status")
             val message = rootObj.optString("message")
@@ -209,6 +217,91 @@ class SnowhiteRepository {
                 Result.success(if (message.isNotEmpty()) message else "Password reset successful")
             } else {
                 Result.failure(Exception(if (message.isNotEmpty()) message else "Invalid OTP or reset failed"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun verifySwCard(cardNumber: String): Result<SwMember> = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = JSONObject().apply {
+                put("card_number", cardNumber.trim())
+            }.toString()
+            val responseJson = executePost("${apiEndpoint}?action=verify_sw_card", jsonBody)
+            val apiResponse = parseApiResponse<SwMember>(responseJson)
+            if (apiResponse?.status == "success" && apiResponse.data != null) {
+                Result.success(apiResponse.data)
+            } else {
+                val jsonObj = JSONObject(responseJson)
+                if (jsonObj.optString("status") == "success") {
+                    val dataObj = jsonObj.optJSONObject("data")
+                    if (dataObj != null) {
+                        val member = SwMember(
+                            cardNumber = dataObj.optString("card_number"),
+                            memberName = dataObj.optString("member_name"),
+                            phone = dataObj.optString("phone"),
+                            branchCode = dataObj.optString("branch_code"),
+                            voucher1 = dataObj.optString("voucher_1"),
+                            voucher2 = dataObj.optString("voucher_2"),
+                            discountPremiumPercent = dataObj.opt("discount_premium_percent")?.toString(),
+                            discountRegularPercent = dataObj.opt("discount_regular_percent")?.toString(),
+                            expiryDate = dataObj.optString("expiry_date")
+                        )
+                        Result.success(member)
+                    } else {
+                        Result.failure(Exception(apiResponse?.message ?: "Member record not found"))
+                    }
+                } else {
+                    val errorMsg = jsonObj.optString("message", apiResponse?.message ?: "Invalid SW Card Number or Phone. Please contact Snowhite support.")
+                    Result.failure(Exception(errorMsg))
+                }
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateProfile(
+        userId: Long,
+        name: String,
+        phone: String,
+        email: String,
+        address: String,
+        newPassword: String? = null
+    ): Result<User> = withContext(Dispatchers.IO) {
+        try {
+            val jsonBody = JSONObject().apply {
+                put("user_id", userId)
+                put("customer_id", userId)
+                put("name", name.trim())
+                put("phone", phone.trim())
+                put("email", email.trim())
+                put("address", address.trim())
+                put("service_zone", address.trim())
+                put("new_phone", phone.trim())
+                put("new_email", email.trim())
+                if (!newPassword.isNullOrBlank()) {
+                    put("new_password", newPassword)
+                }
+            }.toString()
+            val responseJson = executePost("${apiEndpoint}?action=update_profile", jsonBody)
+            val rootObj = JSONObject(responseJson)
+            val status = rootObj.optString("status")
+            val message = rootObj.optString("message")
+            if (status == "success") {
+                val apiResponse = parseApiResponse<User>(responseJson)
+                val updatedUser = apiResponse?.data ?: User(
+                    id = userId,
+                    name = name.trim(),
+                    phone = phone.trim(),
+                    email = email.trim(),
+                    serviceZone = address.trim(),
+                    address = address.trim()
+                )
+                Result.success(updatedUser)
+            } else {
+                Result.failure(Exception(if (message.isNotEmpty()) message else "Failed to update profile"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -241,7 +334,7 @@ class SnowhiteRepository {
                 put("hub_name", "Karachi")
                 put("items", itemsArray)
             }.toString()
-            val responseJson = executePost("${baseUrl}api/routes.php?action=create_laundry_order", jsonBody)
+            val responseJson = executePost("${apiEndpoint}?action=create_laundry_order", jsonBody)
             val rootObj = JSONObject(responseJson)
             val status = rootObj.optString("status")
             val message = rootObj.optString("message")
@@ -258,14 +351,14 @@ class SnowhiteRepository {
 
     suspend fun getOrders(customerId: Long?, phone: String?): Result<List<Order>> = withContext(Dispatchers.IO) {
         try {
-            val urlBuilder = "${baseUrl}api/routes.php?action=get_customer_orders".toHttpUrlOrNull()?.newBuilder()
+            val urlBuilder = "${apiEndpoint}?action=get_customer_orders".toHttpUrlOrNull()?.newBuilder()
             if (customerId != null && customerId > 0) {
                 urlBuilder?.addQueryParameter("customer_id", customerId.toString())
             }
             if (!phone.isNullOrEmpty()) {
                 urlBuilder?.addQueryParameter("phone", phone)
             }
-            val url = urlBuilder?.build()?.toString() ?: "${baseUrl}api/routes.php?action=get_customer_orders"
+            val url = urlBuilder?.build()?.toString() ?: "${apiEndpoint}?action=get_customer_orders"
             val json = executeGet(url)
             val apiResponse = parseApiResponseList(json, Order::class.java)
             if (apiResponse?.status == "success") {
@@ -281,7 +374,7 @@ class SnowhiteRepository {
     suspend fun getChatMessages(orderId: Any): Result<List<ChatMessage>> = withContext(Dispatchers.IO) {
         try {
             val cleanOrderId = orderId.toString().replace("#", "").replace("Order", "").trim().toLongOrNull() ?: 0L
-            val url = "${baseUrl}api/routes.php?action=get_chat_messages&order_id=$cleanOrderId"
+            val url = "${apiEndpoint}?action=get_chat_messages&order_id=$cleanOrderId"
             val json = executeGet(url)
             val apiResponse = parseApiResponseList(json, ChatMessage::class.java)
             if (apiResponse?.status == "success") {
@@ -303,7 +396,7 @@ class SnowhiteRepository {
                 put("sender_id", if (senderId > 0) senderId else 1)
                 put("message", message)
             }.toString()
-            val responseJson = executePost("${baseUrl}api/routes.php?action=send_chat_message", jsonBody)
+            val responseJson = executePost("${apiEndpoint}?action=send_chat_message", jsonBody)
             val rootObj = JSONObject(responseJson)
             val status = rootObj.optString("status")
             val messageText = rootObj.optString("message")
@@ -324,7 +417,7 @@ class SnowhiteRepository {
                 put("rating", rating)
                 put("review", review)
             }.toString()
-            val responseJson = executePost("${baseUrl}api/routes.php?action=submit_rating", jsonBody)
+            val responseJson = executePost("${apiEndpoint}?action=submit_rating", jsonBody)
             val rootObj = JSONObject(responseJson)
             val status = rootObj.optString("status")
             val messageText = rootObj.optString("message")
@@ -340,7 +433,7 @@ class SnowhiteRepository {
 
     suspend fun getPromos(): Result<List<PromoCode>> = withContext(Dispatchers.IO) {
         try {
-            val json = executeGet("${baseUrl}api/routes.php?action=get_promos")
+            val json = executeGet("${apiEndpoint}?action=get_promos")
             val apiResponse = parseApiResponseList(json, PromoCode::class.java)
             if (apiResponse?.status == "success") {
                 Result.success(apiResponse.data ?: emptyList())
