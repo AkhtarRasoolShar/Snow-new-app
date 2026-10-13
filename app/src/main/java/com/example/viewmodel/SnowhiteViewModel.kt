@@ -189,22 +189,31 @@ class SnowhiteViewModel : ViewModel() {
         return _cartItems.value.find { it.product.id == productId }?.quantity ?: 0
     }
 
-    fun calculateItemPrice(product: Product): Double {
+    fun getDiscountedPrice(product: Product, isSwMember: Boolean): Double {
         val basePrice = product.numericPrice
-        if (!_isSwMember.value) return basePrice
+        if (!isSwMember) return basePrice
 
-        val catName = product.categoryName?.lowercase() ?: ""
-        val name = product.name.lowercase()
+        val catName = product.categoryName ?: ""
+        val isPremiumPlus = product.name.contains("Bridal", ignoreCase = true) ||
+                product.name.contains("Heavy", ignoreCase = true) ||
+                product.name.contains("Suit", ignoreCase = true) ||
+                product.name.contains("Formal", ignoreCase = true) ||
+                product.name.contains("Panel", ignoreCase = true) ||
+                product.name.contains("Comforter", ignoreCase = true) ||
+                product.name.contains("Premium", ignoreCase = true) ||
+                catName.contains("Premium", ignoreCase = true) ||
+                catName.contains("Household", ignoreCase = true) ||
+                product.name.contains("Curtain", ignoreCase = true) ||
+                product.name.contains("Blanket", ignoreCase = true) ||
+                product.name.contains("Carpet", ignoreCase = true) ||
+                product.name.contains("Sofa", ignoreCase = true)
 
-        val isThirtyPercent = name.contains("premium plus") ||
-                catName.contains("household") ||
-                name.contains("curtain") ||
-                name.contains("blanket") ||
-                name.contains("carpet") ||
-                name.contains("sofa")
+        val discountPercent = if (isPremiumPlus) 0.30 else 0.20
+        return basePrice * (1.0 - discountPercent)
+    }
 
-        val discountFraction = if (isThirtyPercent) 0.30 else 0.20
-        return basePrice * (1.0 - discountFraction)
+    fun calculateItemPrice(product: Product): Double {
+        return getDiscountedPrice(product, _isSwMember.value)
     }
 
     fun calculateSubtotal(): Double {
